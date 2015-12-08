@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.Scanner; 
 import java.io.File;
 
+// These imports all relate to creating Data objects from String, we do not currently use the method
 import java.util.Calendar;
 import java.util.Date;
 import java.text.SimpleDateFormat;
@@ -16,33 +17,36 @@ import java.text.ParseException;
 
 
 public class FileDB{
-  
-  
+
    
    private ArrayList<String> matchGoalsFromFile = new ArrayList<String>();   
    
+   private ArrayList<String> matchPlayersFromFile = new ArrayList<String>();
 
-   
+
+
    //-----------------------------------------------------------------------------
-      // returns a trimmed ArrayList of Players
+         // returns an ArrayList of Player Objects for all the players contracted to our team
  public  ArrayList<Player> getPlayerStats(){
 
-      
-      ArrayList<String> playerStatsFromFile = new ArrayList<String>(); //values from file
-         
+                        // ArrayList containing the unprocessed data - String - from our file 
+      ArrayList<String> playerStatsFromFile = new ArrayList<String>(); 
+                        
                   
          ArrayList<Player> players = new ArrayList<Player>();
          
          try{
-         
-            Scanner scanner = new Scanner(new File("Players.csv"));
+                       // read from file with Scanner, use , as delimiter
+            Scanner scanner = new Scanner(new File("Players.csv")); 
             scanner.useDelimiter(",");
    
             while(scanner.hasNext()){                 
                      playerStatsFromFile.add(scanner.next());          
             }
             
-            playerStatsFromFile.removeAll(Arrays.asList("", null));
+            scanner.close();
+            playerStatsFromFile.removeAll(Arrays.asList("", null));  // remove indices that are just empty strings
+                                                                     // .csv creates these if we have double-clicked on cells without inputting chars
    
                    
             // now we create player object and add them to an arraylist called players
@@ -58,9 +62,8 @@ public class FileDB{
             e.printStackTrace();
          }
             
-                     
-         return players;
-        
+
+         return players;   
    }
 
 
@@ -68,19 +71,16 @@ public class FileDB{
 
    //-----------------------------------------------------------------------------
 
-      // returns an ArrayList of match info
+      // returns an ArrayList of Match Objects
    public  ArrayList<Match> getMatchScores(){
-
+   
+     getMatchPlayersData();  // calling the two other methods that also have their own files which they read from
+     getGoalData();
+     
          ArrayList<String> matchScoresFromFile = new ArrayList<String>();
-         ArrayList<Match> matches = new ArrayList<Match>();
-
-         getGoalData();
-
       
          
-      
-         // creates an ArrayList of match objects
-         //ArrayList<Match> matches = new ArrayList<Match>();
+         ArrayList<Match> matches = new ArrayList<Match>();
             
          try {
 
@@ -92,12 +92,11 @@ public class FileDB{
                      matchScoresFromFile.add(scanner.next());          
             }
             
+            scanner.close();
             matchScoresFromFile.removeAll(Arrays.asList("", null));
-            
-            ArrayList<Player> newPlayers = getPlayerStats();
-            
-   
-            for(int i = 0 ; i < matchScoresFromFile.size() - 6 ; i +=7){//is i += 6 and - 8 correct? 
+                      
+                              // we increment by 7 since we take in 7 parameters from the file
+            for(int i = 0 ; i < matchScoresFromFile.size() - 6 ; i +=7){
                
                 
                String date = matchScoresFromFile.get(i);
@@ -108,7 +107,9 @@ public class FileDB{
                int saves = Integer.valueOf(matchScoresFromFile.get(i+5));
    
                
-                // newplayers of type ArrayList is wrong cause we do not save individual players related to a match anywhere..                                                                                                                                          
+                // the last two parameters are method calls that return an ArrayList of Player objects and Goal objects
+                // each time the methods are called it returns an ArrayList corresponding to exactly one line in the files
+                // this way we ensure that the MatchPlayers and the MatchGoals are the players and goals linked to this exact Match object                                                                                                                                         
                Match match = new Match(date, opponent, ourScore, opponentScore, formation, saves, getMatchPlayers(), getMatchGoals()); 
                matches.add(match);
    
@@ -117,21 +118,18 @@ public class FileDB{
             System.err.println("FileNotFoundException: No matches played.");
             e.printStackTrace();
          }
+        
           return matches;
           
    }
    
     //-----------------------------------------------------------------------------
-  
-   public ArrayList<Player> getMatchPlayers(){
+   
+   public void getMatchPlayersData(){
    
       ArrayList<String> matchPlayersFromFile = new ArrayList<String>();
       
-      matchPlayersFromFile.removeAll(Arrays.asList("", null));
-      
-      ArrayList<Player> matchPlayers = new ArrayList<Player>();
-
-      try {
+        try {
       
          Scanner scanner = new Scanner(new File("MatchPlayers.csv"));
             
@@ -140,30 +138,38 @@ public class FileDB{
             while(scanner.hasNext()){                 
                      matchPlayersFromFile.add(scanner.next());          
             }
-            
-            
-            int i = 0;
-            while(!(matchPlayersFromFile.get(i).contains("buffer"))){
-               for(Player p: getPlayerStats()){
-                  if(matchPlayersFromFile.get(i).trim().equals(p.getName())){
-                     matchPlayers.add(p);
-                     }else{
-                        //System.out.println("Not a team player");
-                       }
-                  }   
-               
-               i++;
-             }    
-             while(i >= 0){
-               matchPlayersFromFile.remove(0);
-               i--;
-             }     
+            scanner.close();
+      matchPlayersFromFile.removeAll(Arrays.asList("", null));
+      
       } catch(FileNotFoundException e){
          System.err.println("FileNotFoundException: No players on the pitch.");
          e.printStackTrace();
       }    
-             
-         
+   
+   
+      this.matchPlayersFromFile = matchPlayersFromFile;
+   }
+   
+   
+   public ArrayList<Player> getMatchPlayers(){
+   
+      ArrayList<Player> matchPlayers = new ArrayList<Player>();
+      if(matchPlayersFromFile.size() > 10){
+            int i = 0;
+            while(!(matchPlayersFromFile.get(i).contains("buffer"))){  // we use buffer to indicate that a new line occurs
+               for(Player p: getPlayerStats()){                        // since our ArrayList is one-dimensional
+                  if(p.getName().trim().equals(matchPlayersFromFile.get(i).trim())){ 
+                     matchPlayers.add(p);
+                     }
+                  }   
+               
+               i++;
+             }    
+             while(i >= 0){   // we delete the amount of raw data indices we have used up, so next time we are ready to start from index 0 again
+               matchPlayersFromFile.remove(0);
+               i--;
+             }     
+         }
          return matchPlayers;
       }   
       
@@ -174,21 +180,25 @@ public class FileDB{
       ArrayList<String> matchGoalsFromFile = new ArrayList<String>();
       
       try { 
-         Scanner scanner = new Scanner(new File("MatchGoals.csv"));
-            
+         Scanner scanner = new Scanner(new File("MatchGoals.txt"));// notice that this is a .txt-file. Not a .csv-file.
+                                                                   // the reason for this is that the csv-file adds an extra comma on the first line
+                                                                   // which it doesn't in the other files
+                                                                   // using txt allows us to edit the file
          scanner.useDelimiter(",");
             
          while(scanner.hasNext()){                 
             matchGoalsFromFile.add(scanner.next());          
          }
          
+         scanner.close();
          matchGoalsFromFile.removeAll(Arrays.asList("", null));
          
          this.matchGoalsFromFile = matchGoalsFromFile;
       } catch(FileNotFoundException e){
          System.err.println("FileNotFoundException: Null goals scored.");
-         e.printStackTrace();
+         e.printStackTrace(); 
       }    
+      
    }
          
          //---------------------------
@@ -212,16 +222,16 @@ public class FileDB{
                     
                   }    
                   Goal goal = new Goal(matchGoalsFromFile.get(i), Integer.valueOf(matchGoalsFromFile.get(i+1)), player);
-                  matchGoals.add(goal);
-              
+                  if(!(player == null)){
+                     matchGoals.add(goal);
+                  }
             i += 3;      
          }     
       
          while(i >= 0){
             matchGoalsFromFile.remove(0);
             i--;
-         }
-         
+         }  
 
     }
 
@@ -229,14 +239,18 @@ public class FileDB{
    }            
 
 
-
-    public static Date getDate(String date) {
+      // This is a very easy implementation if desired, we have left the method in just in case but do not use it as is
+    public static Date getDate(String date){
         try {
             return new SimpleDateFormat("dd-mm-yyyy").parse(date);
         } catch (ParseException e) {
             return null;
         }
      }
+     
+     
+     
 
 
 }
+//by Anders, Dennis, Marc, Søren

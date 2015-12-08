@@ -16,6 +16,8 @@ public class Player{
       this.saves = saves;
    }   
    
+   public Player(){};
+   
    public String getName(){
       return name;
    }   
@@ -48,6 +50,10 @@ public class Player{
       this.saves = saves;
    }      
                   
+   public String toString(){
+	return this.name;
+   }
 
 
 }
+//by Dennis

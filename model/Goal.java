@@ -28,4 +28,11 @@ public class Goal{
    public Player getPlayer(){
       return player;
    }
+
+   public String toString(){
+	   return this.player + " " + this.time + "'";
+   }
+
 }
+
+// Søren
